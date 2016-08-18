@@ -8,6 +8,9 @@ import socket
 from netaddr import IPNetwork, IPAddress
 import subprocess
 import git
+import pipes
+import re
+import pexpect
 
 
 
@@ -19,6 +22,9 @@ tools_patch = '/Users/somebody/Desktop/Tools/'
 
 # Set this to the CIDR range that your destination server resides on. This is hacky but we're not making grand pianos
 red_net = IPNetwork('192.168.0.0/24')
+
+# Set this to your file destination URI
+fileserver_uri = "user@host:/data/Clients/"
 
 # Set this to the patch of the Nessus vmx file
 nessus_vmx = '/var/lib/vmware/Shared VMs/Nessus/Nessus.vmx'
@@ -81,6 +87,17 @@ def tar_data():
 					print "Compressing: "+os.path.join(dirname,subdirname) + " -> " + base_path + client + '-' + date + '.tar.gz'
 					with tarfile.open(base_path + client + '-' + date + '.tar.gz', mode='w:gz') as archive:
 						archive.add(os.path.join(dirname,subdirname), recursive=True, arcname=client + '/' + date)
+
+					#upload file
+
+def progress(locals):
+	# extract percents
+	print(in(re.search(br'(\d+)%$', locals['child'].after).group(1)))
+
+def upload_file(file, server_uri):
+	command = "scp %s %s" % tuple(map(pipes.quote, [file, server_uri]))
+	pexpect.run(command, events=r'\d+%': progress})
+
 
 def rollback_btrfs():
 	# Roll back the btrfs partition.
@@ -187,3 +204,5 @@ def main():
 
 if __name__ == "__main__":
 	main()
+
+
