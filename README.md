@@ -5,4 +5,3 @@ Requisites:
 
 netaddr
 GitPython
-paramiko
