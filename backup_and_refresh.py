@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import sys
 import os
 import tarfile
@@ -15,22 +13,23 @@ import pexpect
 
 
 # Set this to your base path for client data
-base_path = '/Users/somebody/Desktop/Clients/'
+base_path = '/home/rs/Desktop/Clients/'
 
 # Set this to your Tools folder
-tools_patch = '/Users/somebody/Desktop/Tools/'
+tools_path = '/home/rs/Desktop/Tools/'
 
 # Set this to the CIDR range that your destination server resides on. This is hacky but we're not making grand pianos
-red_net = IPNetwork('192.168.0.0/24')
+#red_net = IPNetwork('192.168.20.0/24')
+red_net = IPNetwork('10.30.10.0/24')
 
 # Set this to your file destination URI
 fileserver_uri = "user@host:/data/Clients/"
 
 # Set this to the patch of the Nessus vmx file
-nessus_vmx = '/var/lib/vmware/Shared VMs/Nessus/Nessus.vmx'
+nessus_vmx = '/var/lib/vmware/Shared VMs/TenableAppliance/TenableAppliance-VMware-4.2.0-standard.vmx'
 
 # Set this to the patch of the Nessus vmx file
-nexpose_vmx = '/var/lib/vmware/Shared VMs/Nexpose/Nexpose.vmx'
+nexpose_vmx = '/var/lib/vmware/Shared VMs/NexposeVA/NexposeVA.vmx'
 
 def info():
 	# Warn user that this program will make modifications to their data
@@ -92,11 +91,11 @@ def tar_data():
 
 def progress(locals):
 	# extract percents
-	print(in(re.search(br'(\d+)%$', locals['child'].after).group(1)))
+	print(int(re.search(br'(\d+)%$', locals['child'].after).group(1)))
 
 def upload_file(file, server_uri):
 	command = "scp %s %s" % tuple(map(pipes.quote, [file, server_uri]))
-	pexpect.run(command, events=r'\d+%': progress})
+	pexpect.run(command, events={r'\d+%': progress})
 
 
 def rollback_btrfs():
@@ -123,21 +122,25 @@ def revert_vmware():
 		# Do some tricky VMware vmrun stuff
 		#
 
-		#print "Reverting VMware snapshots."
-		#nessus_snaps = subprocess.Popen(["vmrun", "-T ws listSnapshots", nessus_vmx], stdout=subprocess.PIPE).communicate()[0]
-		#nexpose_snaps = subprocess.Popen(["vmrun", "-T ws listSnapshots", nexpose_vmx], stdout=subprocess.PIPE).communicate()[0]
-		#if nessus_snaps == []:
-		#	print "No Nessus snapshots!"
-		#else:
-		#	print "Reverting Nessus snapshot."
-		#	nessus_snap_status = subprocess.Popen(["vmrun", "-T ws revertToSnapshot", nessus_snaps[0], nessus_vmx], stdout=subprocess.PIPE).communicate()[0]
-		#	print str(nessus_snap_status)
-		#if nexpose_snaps == []:
-		#	print "No Nexpose snapshots!"
-		#else:
-		#	print "Reverting Nexpose snapshot."
-		#	nessus_snap_status = subprocess.Popen(["vmrun", "-T ws revertToSnapshot", nexpose_snaps[0], nexpose_vmx], stdout=subprocess.PIPE).communicate()[0]
-		#	print str(nexpose_snap_status)
+		print "Reverting VMware snapshots."
+		nessus_snaps = subprocess.Popen(["vmrun", "-T", "ws", "listSnapshots", nessus_vmx], stdout=subprocess.PIPE).communicate()[0]
+		nexpose_snaps = subprocess.Popen(["vmrun", "-T", "ws", "listSnapshots", nexpose_vmx], stdout=subprocess.PIPE).communicate()[0]
+		if int(nessus_snaps[17]) == 0:
+			print "No Nessus snapshots!"
+		elif int(nessus_snaps[17]) >= 2:
+			print "There is more than one snapshot. Please delete all unnecessary snapshots and rerun this script."
+		else:
+			print "Reverting Nessus snapshot."
+			print nessus_snaps[19]
+			#nessus_snap_status = subprocess.Popen(["vmrun", "-T", "ws", "revertToSnapshot", nessus_snaps[0], nessus_vmx], stdout=subprocess.PIPE).communicate()[0]
+			#print str(nessus_snap_status)
+		if nexpose_snaps == []:
+			print "No Nexpose snapshots!"
+		else:
+			print "Reverting Nexpose snapshot."
+			print nexpose_snaps
+			#nessus_snap_status = subprocess.Popen(["vmrun", "-T ws revertToSnapshot", nexpose_snaps[0], nexpose_vmx], stdout=subprocess.PIPE).communicate()[0]
+			#print str(nexpose_snap_status)
 
 def is_git_directory(path):
 	return subprocess.call(['git', '-C', path, 'status'], stderr=subprocess.STDOUT, stdout=open(os.devnull, 'w')) == 0
@@ -149,10 +152,10 @@ def update_tools():
 	else:
 		for dirname, dirnames, filenames in os.walk(tools_path, topdown=False):
 				for subdirname in dirnames:
-					if is_git_directory(os.path.join(dirname,subdirname))
-					print "Updating: "+(os.path.join(dirname,subdirname))
-					g = git.cmd.Git(os.path.join(dirname,subdirname))
-					g.pull()
+					if is_git_directory(os.path.join(dirname,subdirname)):
+						print "Updating: "+(os.path.join(dirname,subdirname))
+						g = git.cmd.Git(os.path.join(dirname,subdirname))
+						g.pull()
 
 def main():
 	
@@ -204,5 +207,6 @@ def main():
 
 if __name__ == "__main__":
 	main()
+
 
 
